@@ -192,7 +192,7 @@ exports.handler = async function (event) {
   // Tổng giới hạn xử lý để tránh treo Netlify Function.
   const timeoutId = setTimeout(() => {
     controller.abort();
-  }, 42000);
+  }, 15000);
 
   try {
     const rawBody = event.body || "";
