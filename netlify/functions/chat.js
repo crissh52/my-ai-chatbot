@@ -5,8 +5,6 @@
 // Netlify Functions - CommonJS
 
 const MODELS = [
-  { id: "gemini-3.8-flash", thinking: "medium" },
-  { id: "gemini-3.6-flash", thinking: "low" },
   { id: "gemini-3.5-flash-lite", thinking: "minimal" }
 ];
 
