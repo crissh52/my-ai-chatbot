@@ -19,7 +19,7 @@ exports.handler = async function(event, context) {
         if (!userMessage) throw new Error("Không nhận được câu hỏi từ người dùng.");
 
         // Dùng model thế hệ mới nhất, nhanh và chuẩn nhất hiện tại
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`;
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
         
         // Cài đặt bộ đếm giờ: Tự hủy sau 8 giây để tránh Netlify báo lỗi Timeout 10s ngầm
         const controller = new AbortController();
