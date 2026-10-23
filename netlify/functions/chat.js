@@ -33,7 +33,7 @@ exports.handler = async function(event, context) {
         }
 
         // 6. Gọi API với công tắc ngắt khẩn cấp (Timeout) chống kẹt loading vĩnh viễn
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
         
         const abortController = new AbortController();
         const timeoutId = setTimeout(() => abortController.abort(), 15000); // Tự hủy nếu Google treo quá 15 giây
