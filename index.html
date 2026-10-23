@@ -1,66 +1,674 @@
+
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Chatbot Cá Nhân</title>
-    <style>
-        body { font-family: Arial; padding: 20px; background: #121212; color: #fff; max-width: 800px; margin: auto; }
-        #chatbox { height: 400px; border: 1px solid #333; padding: 15px; overflow-y: auto; background: #1e1e1e; border-radius: 8px; margin-bottom: 10px; }
-        .user-msg { color: #4dabf7; margin-bottom: 10px; }
-        .ai-msg { color: #69db7c; margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 10px; }
-        input, button { padding: 10px; border-radius: 5px; border: none; font-size: 16px; }
-        input { width: 75%; background: #2d2d2d; color: white; margin-right: 5px; }
-        button { background: #0b7285; color: white; cursor: pointer; font-weight: bold; width: 20%; }
-        button:hover { background: #1098ad; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b1019">
+  <title>Trợ lý AI cá nhân</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b1019;
+      --panel: #141c29;
+      --panel-2: #1b2637;
+      --border: #2b394d;
+      --text: #edf4ff;
+      --muted: #94a5bb;
+      --accent: #25c7b6;
+      --accent-dark: #103c3a;
+      --danger: #ff818a;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 15px/1.55 system-ui, Arial, sans-serif;
+    }
+
+    button, select, textarea {
+      font: inherit;
+    }
+
+    button { cursor: pointer; }
+
+    button:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+    }
+
+    button:focus-visible,
+    select:focus-visible,
+    textarea:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    .app {
+      max-width: 1050px;
+      height: 100dvh;
+      min-height: 400px;
+      margin: auto;
+      display: flex;
+      flex-direction: column;
+      padding: 16px;
+      gap: 12px;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    h1 {
+      font-size: clamp(19px, 3vw, 25px);
+      margin: 0;
+    }
+
+    .subtitle, .status, .hint {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .control, .secondary {
+      background: var(--panel);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 9px 12px;
+    }
+
+    .secondary:hover {
+      border-color: var(--accent);
+    }
+
+    .chat {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      scrollbar-color: #46556b transparent;
+    }
+
+    .empty {
+      margin: auto;
+      text-align: center;
+      max-width: 480px;
+    }
+
+    .empty .symbol {
+      font-size: 42px;
+      margin-bottom: 12px;
+    }
+
+    .empty h2 { margin: 0 0 8px; }
+
+    .empty p { color: var(--muted); }
+
+    .message {
+      max-width: 86%;
+      min-width: 80px;
+      padding: 13px 16px;
+      border-radius: 16px;
+      overflow-wrap: anywhere;
+    }
+
+    .message.user {
+      align-self: flex-end;
+      background: var(--accent-dark);
+      border: 1px solid #267f75;
+      border-bottom-right-radius: 5px;
+    }
+
+    .message.model {
+      align-self: flex-start;
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      border-bottom-left-radius: 5px;
+    }
+
+    .message.error {
+      align-self: flex-start;
+      border: 1px solid #8a454f;
+      background: #3b2028;
+    }
+
+    .message-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--accent);
+      margin-bottom: 7px;
+    }
+
+    .message.error .message-head {
+      color: var(--danger);
+    }
+
+    .message-text {
+      white-space: pre-wrap;
+      line-height: 1.65;
+    }
+
+    .message-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 9px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .copy {
+      background: transparent;
+      border: 0;
+      color: var(--muted);
+      padding: 3px 0;
+      font-size: 12px;
+    }
+
+    .copy:hover { color: var(--accent); }
+
+    .meta {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .composer {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 11px;
+    }
+
+    .input-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 10px;
+    }
+
+    textarea {
+      flex: 1;
+      min-width: 0;
+      min-height: 46px;
+      max-height: 150px;
+      resize: none;
+      padding: 11px 12px;
+      background: var(--panel-2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 11px;
+    }
+
+    .send {
+      min-height: 46px;
+      min-width: 90px;
+      padding: 10px 16px;
+      color: #041b19;
+      background: var(--accent);
+      font-weight: 700;
+      border: none;
+      border-radius: 11px;
+    }
+
+    .send:hover:not(:disabled) {
+      background: #4be5d1;
+    }
+
+    .footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-top: 9px;
+    }
+
+    .status {
+      overflow-wrap: anywhere;
+    }
+
+    .dot {
+      display: inline-block;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent);
+      margin-right: 6px;
+    }
+
+    .dot.busy { background: #ffd166; }
+
+    .dot.failed { background: var(--danger); }
+
+    @media (max-width: 600px) {
+      .app {
+        padding: 9px;
+        gap: 9px;
+      }
+
+      .header { gap: 9px; }
+
+      .toolbar { width: 100%; }
+
+      .toolbar select { flex: 1; }
+
+      .chat {
+        padding: 12px;
+        border-radius: 13px;
+      }
+
+      .message {
+        max-width: 96%;
+        padding: 11px 13px;
+      }
+
+      .send { min-width: 67px; }
+
+      .hint { display: none; }
+    }
+  </style>
 </head>
 <body>
-    <h2>🤖 Trợ lý AI Gemini</h2>
-    <div id="chatbox"></div>
-    <div style="display: flex;">
-        <input type="text" id="userInput" placeholder="Nhập câu hỏi tại đây...">
-        <button onclick="askAI()" id="sendBtn">Gửi</button>
-    </div>
+  <main class="app">
+    <header class="header">
+      <div>
+        <h1>✦ Trợ lý AI cá nhân</h1>
+        <div class="subtitle" id="modelLabel">
+          Gemini AI · Đang chờ kết nối
+        </div>
+      </div>
 
-    <script>
-        async function askAI() {
-            const input = document.getElementById("userInput");
-            const chatbox = document.getElementById("chatbox");
-            const btn = document.getElementById("sendBtn");
+      <div class="toolbar">
+        <select class="control" id="modeSelect"
+                aria-label="Chế độ trả lời">
+          <option value="fast">⚡ Nhanh</option>
+          <option value="balanced" selected>⚖ Cân bằng</option>
+          <option value="deep">🧠 Chuyên sâu</option>
+        </select>
 
-            if(!input.value.trim()) return;
+        <button class="secondary" id="exportBtn"
+                type="button">Xuất TXT</button>
 
-            // In câu hỏi của bạn ra
-            chatbox.innerHTML += `<div class="user-msg"><b>Bạn:</b> ${input.value}</div>`;
-            const question = input.value;
-            input.value = "";
-            btn.innerText = "Đang gõ...";
-            btn.disabled = true;
+        <button class="secondary" id="clearBtn"
+                type="button">Xóa chat</button>
+      </div>
+    </header>
 
-            try {
-                // Gọi API ngầm qua server Netlify (Bảo mật 100%)
-                const response = await fetch("/.netlify/functions/chat", {
-                    method: "POST",
-                    body: JSON.stringify({ message: question })
-                });
-                const data = await response.json();
-                
-                // In câu trả lời của AI ra
-                // Lệnh replace giúp đổi dấu xuống dòng của AI thành thẻ <br> của HTML
-                chatbox.innerHTML += `<div class="ai-msg"><b>AI:</b><br>${data.reply.replace(/\n/g, '<br>')}</div>`;
-            } catch (error) {
-                chatbox.innerHTML += `<div class="ai-msg" style="color:red;">Lỗi mạng hoặc Backend!</div>`;
-            }
-            
-            chatbox.scrollTop = chatbox.scrollHeight;
-            btn.innerText = "Gửi";
-            btn.disabled = false;
-        }
-        
-        document.getElementById("userInput").addEventListener("keypress", function(e) {
-            if (e.key === "Enter") askAI();
+    <section class="chat" id="chatbox"
+             aria-label="Lịch sử hội thoại"
+             aria-live="polite">
+    </section>
+
+    <form class="composer" id="chatForm">
+      <div class="input-row">
+        <textarea id="userInput" rows="1"
+                  maxlength="10000"
+                  placeholder="Nhập câu hỏi..."
+                  aria-label="Câu hỏi cho AI"></textarea>
+
+        <button class="send" id="sendBtn"
+                type="submit">Gửi ➤</button>
+      </div>
+
+      <div class="footer">
+        <span class="status" id="statusText">
+          <span class="dot"></span>Sẵn sàng
+        </span>
+        <span class="hint">Enter gửi · Shift+Enter xuống dòng</span>
+      </div>
+    </form>
+  </main>
+
+  <script>
+    "use strict";
+
+    const API_URL = "/.netlify/functions/chat";
+    const STORAGE_KEY = "my-ai-chat-history-v2";
+    const MAX_SAVED = 40;
+    const MAX_CONTEXT = 12;
+
+    const chatbox = document.getElementById("chatbox");
+    const form = document.getElementById("chatForm");
+    const input = document.getElementById("userInput");
+    const sendBtn = document.getElementById("sendBtn");
+    const clearBtn = document.getElementById("clearBtn");
+    const exportBtn = document.getElementById("exportBtn");
+    const modeSelect = document.getElementById("modeSelect");
+    const statusText = document.getElementById("statusText");
+    const modelLabel = document.getElementById("modelLabel");
+
+    let messages = [];
+    let busy = false;
+
+    function loadMessages() {
+      try {
+        const saved = JSON.parse(
+          localStorage.getItem(STORAGE_KEY) || "[]"
+        );
+
+        if (!Array.isArray(saved)) return;
+
+        messages = saved.filter(item =>
+          item &&
+          ["user", "model", "error"].includes(item.role) &&
+          typeof item.text === "string"
+        ).slice(-MAX_SAVED);
+      } catch {
+        messages = [];
+      }
+    }
+
+    function saveMessages() {
+      try {
+        localStorage.setItem(
+          STORAGE_KEY,
+          JSON.stringify(messages.slice(-MAX_SAVED))
+        );
+      } catch {
+        // Trang vẫn hoạt động nếu bộ nhớ bị chặn.
+      }
+    }
+
+    function setStatus(text, state = "ready") {
+      statusText.replaceChildren();
+
+      const dot = document.createElement("span");
+      dot.className = "dot";
+
+      if (state === "busy") dot.classList.add("busy");
+      if (state === "failed") dot.classList.add("failed");
+
+      statusText.append(dot, document.createTextNode(text));
+    }
+
+    function addMessage(message) {
+      const box = document.createElement("article");
+      box.className = "message " + message.role;
+
+      const head = document.createElement("div");
+      head.className = "message-head";
+      head.textContent = message.role === "user"
+        ? "Bạn"
+        : message.role === "error"
+          ? "Thông báo lỗi"
+          : "AI" + (message.model ? " · " + message.model : "");
+
+      const content = document.createElement("div");
+      content.className = "message-text";
+
+      // textContent ngăn HTML từ người dùng/AI
+      // bị thực thi thành mã trên trình duyệt.
+      content.textContent = message.text;
+
+      box.append(head, content);
+
+      if (message.role === "model") {
+        const actions = document.createElement("div");
+        actions.className = "message-actions";
+
+        const copy = document.createElement("button");
+        copy.type = "button";
+        copy.className = "copy";
+        copy.textContent = "⧉ Sao chép";
+
+        copy.addEventListener("click", async () => {
+          try {
+            await navigator.clipboard.writeText(message.text);
+            copy.textContent = "✓ Đã sao chép";
+            setTimeout(() => {
+              copy.textContent = "⧉ Sao chép";
+            }, 1500);
+          } catch {
+            copy.textContent = "Không sao chép được";
+          }
         });
-    </script>
+
+        actions.append(copy);
+
+        if (message.usage?.total) {
+          const meta = document.createElement("span");
+          meta.className = "meta";
+          meta.textContent =
+            message.usage.total + " tokens";
+          actions.append(meta);
+        }
+
+        box.append(actions);
+      }
+
+      chatbox.append(box);
+    }
+
+    function render() {
+      chatbox.replaceChildren();
+
+      if (messages.length === 0) {
+        const empty = document.createElement("div");
+        empty.className = "empty";
+
+        const symbol = document.createElement("div");
+        symbol.className = "symbol";
+        symbol.textContent = "✦";
+
+        const title = document.createElement("h2");
+        title.textContent = "Hôm nay bạn cần hỗ trợ gì?";
+
+        const description = document.createElement("p");
+        description.textContent =
+          "Hỏi bất kỳ điều gì, lập trình, học tập " +
+          "hoặc phân tích vấn đề. Lịch sử được lưu " +
+          "trên trình duyệt này.";
+
+        empty.append(symbol, title, description);
+        chatbox.append(empty);
+      } else {
+        messages.forEach(addMessage);
+      }
+
+      chatbox.scrollTop = chatbox.scrollHeight;
+    }
+
+    function pushMessage(message) {
+      messages.push(message);
+      messages = messages.slice(-MAX_SAVED);
+      saveMessages();
+      render();
+    }
+
+    function setBusy(value) {
+      busy = value;
+      sendBtn.disabled = value;
+      clearBtn.disabled = value;
+      exportBtn.disabled = value;
+      modeSelect.disabled = value;
+      sendBtn.textContent = value ? "Đang xử lý..." : "Gửi ➤";
+    }
+
+    async function askAI() {
+      if (busy) return;
+
+      const question = input.value.trim();
+      if (!question) return;
+
+      // Lấy hội thoại trước khi thêm câu hỏi mới.
+      const history = messages
+        .filter(m => m.role === "user" || m.role === "model")
+        .slice(-MAX_CONTEXT)
+        .map(m => ({
+          role: m.role,
+          text: m.text
+        }));
+
+      const mode = modeSelect.value;
+
+      pushMessage({ role: "user", text: question });
+
+      input.value = "";
+      input.style.height = "46px";
+      setBusy(true);
+      setStatus("AI đang xử lý câu hỏi...", "busy");
+
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 45000);
+
+      try {
+        const response = await fetch(API_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            message: question,
+            history,
+            mode
+          }),
+          signal: controller.signal
+        });
+
+        let data;
+
+        try {
+          data = await response.json();
+        } catch {
+          throw new Error(
+            "Máy chủ trả về dữ liệu không hợp lệ."
+          );
+        }
+
+        if (!response.ok) {
+          throw new Error(
+            data?.reply || "HTTP " + response.status
+          );
+        }
+
+        if (typeof data.reply !== "string") {
+          throw new Error("Không có nội dung phản hồi.");
+        }
+
+        const isError = Boolean(data.error) ||
+          data.reply.startsWith("[BÁO LỖI]");
+
+        pushMessage({
+          role: isError ? "error" : "model",
+          text: data.reply,
+          model: data.model || "",
+          usage: data.usage || null
+        });
+
+        if (isError) {
+          setStatus("Yêu cầu chưa thành công", "failed");
+        } else {
+          modelLabel.textContent =
+            "Đang chạy: " + (data.model || "Gemini AI");
+
+          setStatus(
+            data.fallback
+              ? "Đã trả lời bằng model dự phòng"
+              : "Trả lời thành công"
+          );
+        }
+      } catch (error) {
+        const detail = error.name === "AbortError"
+          ? "Yêu cầu vượt quá 45 giây."
+          : error.message;
+
+        pushMessage({
+          role: "error",
+          text: detail
+        });
+
+        setStatus("Không thể hoàn tất yêu cầu", "failed");
+      } finally {
+        clearTimeout(timer);
+        setBusy(false);
+        input.focus();
+      }
+    }
+
+    form.addEventListener("submit", event => {
+      event.preventDefault();
+      askAI();
+    });
+
+    input.addEventListener("keydown", event => {
+      if (event.key === "Enter" && !event.shiftKey &&
+          !event.isComposing) {
+        event.preventDefault();
+        askAI();
+      }
+    });
+
+    input.addEventListener("input", () => {
+      input.style.height = "46px";
+      input.style.height =
+        Math.min(input.scrollHeight, 150) + "px";
+    });
+
+    clearBtn.addEventListener("click", () => {
+      if (busy || messages.length === 0) return;
+
+      if (!confirm("Xóa toàn bộ lịch sử chat trên máy này?")) {
+        return;
+      }
+
+      messages = [];
+      saveMessages();
+      modelLabel.textContent = "Gemini AI · Sẵn sàng";
+      setStatus("Đã xóa hội thoại");
+      render();
+    });
+
+    exportBtn.addEventListener("click", () => {
+      if (busy || messages.length === 0) return;
+
+      const content = messages.map(m => {
+        const name = m.role === "user"
+          ? "Bạn"
+          : m.role === "error"
+            ? "Lỗi"
+            : "AI";
+
+        return name + ":\n" + m.text;
+      }).join("\n\n--------------------\n\n");
+
+      const blob = new Blob([content], {
+        type: "text/plain;charset=utf-8"
+      });
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "lich-su-chat-ai.txt";
+      link.click();
+
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    });
+
+    loadMessages();
+    render();
+    input.focus();
+  </script>
 </body>
 </html>
