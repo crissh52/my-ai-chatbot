@@ -2,7 +2,7 @@ name: Health checks
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, feature/preview-ai-isolation]
 
 permissions:
   contents: read
