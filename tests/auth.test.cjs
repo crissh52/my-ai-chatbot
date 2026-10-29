@@ -34,6 +34,27 @@ test("session expires server-side", async (t) => {
   const cookie = await auth.enter("setup", PASSWORD); clock += 2001;
   assert.equal(auth.authenticated(cookie), false);
 });
+test("idle session expires even when the absolute lifetime remains", async (t) => {
+  const { root } = fixture(t); let clock = 1000;
+  const auth = createLocalAuth({ root, now: () => clock, idleMs: 1000, sessionMs: 100000 });
+  const cookie = await auth.enter("setup", PASSWORD); clock += 1001;
+  assert.equal(auth.authenticated(cookie), false);
+  assert.throws(() => auth.touch(cookie), /auth_login_required/);
+});
+test("checking session status does not keep an unattended session alive", async (t) => {
+  const { root } = fixture(t); let clock = 1000;
+  const auth = createLocalAuth({ root, now: () => clock, idleMs: 1000 });
+  const cookie = await auth.enter("setup", PASSWORD);
+  clock += 800; assert.equal(auth.authenticated(cookie), true);
+  clock += 201; assert.equal(auth.authenticated(cookie), false);
+});
+test("acknowledged activity extends idle time but never absolute lifetime", async (t) => {
+  const { root } = fixture(t); let clock = 1000;
+  const auth = createLocalAuth({ root, now: () => clock, idleMs: 1000, sessionMs: 2000 });
+  const cookie = await auth.enter("setup", PASSWORD);
+  clock += 800; auth.touch(cookie); clock += 800; assert.equal(auth.authenticated(cookie), true);
+  auth.touch(cookie); clock += 401; assert.equal(auth.authenticated(cookie), false);
+});
 test("logout invalidates the server session", async (t) => {
   const { root } = fixture(t); const auth = createLocalAuth({ root }); const cookie = await auth.enter("setup", PASSWORD);
   const cleared = auth.logout(cookie); assert.ok(cleared.includes("Max-Age=0")); assert.equal(auth.authenticated(cookie), false);
@@ -114,4 +135,12 @@ test("auth responses never disclose credential hashes or password values", async
   const state = await (await fetch(base + "/api/auth")).json();
   assert.deepEqual(Object.keys(state).sort(), ["authenticated", "configured", "csrfToken"]);
   assert.equal(JSON.stringify(state).includes(PASSWORD), false);
+});
+test("activity endpoint cannot revive an anonymous session", async (t) => {
+  const { post, headers } = await local(t);
+  assert.equal((await post({ action: "activity" })).status, 401);
+  const setup = await post({ action: "setup", password: PASSWORD });
+  const cookie = setup.headers.get("set-cookie").split(";")[0];
+  const touched = await post({ action: "activity" }, { ...headers, Cookie: cookie });
+  assert.equal(touched.status, 200); assert.equal(touched.headers.get("set-cookie"), null);
 });

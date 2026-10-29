@@ -71,19 +71,25 @@ function createSupervisorServer({ reader = createGithubReader(), history = creat
         const body = await readJson(req);
         if (!body || Array.isArray(body) || typeof body !== "object") throw new Error("invalid_json");
         let cookie;
+        if (body.action === "activity" && Object.keys(body).length === 1) {
+          auth.touch(req.headers.cookie); send(200, { authenticated: true }); return;
+        }
         if (body.action === "logout" && Object.keys(body).length === 1) cookie = auth.logout(req.headers.cookie);
         else if (["setup", "login"].includes(body.action) && Object.keys(body).length === 2) cookie = await auth.enter(body.action, body.password);
         else throw new Error("invalid_action");
         send(200, { authenticated: body.action !== "logout" }, undefined, { "Set-Cookie": cookie });
       } catch (error) {
         const codes = { body_too_large: 413, invalid_json: 400, invalid_action: 400, auth_password_invalid: 400,
-          auth_invalid_login: 401, auth_setup_required: 409, auth_already_configured: 409, auth_try_later: 429 };
+          auth_invalid_login: 401, auth_login_required: 401, auth_setup_required: 409, auth_already_configured: 409, auth_try_later: 429 };
         send(codes[error.message] || 503, { error: codes[error.message] ? error.message : "auth_unavailable" });
       }
       return;
     }
     if (["/api/tasks", "/api/history", "/api/project-zero"].includes(req.url)) {
-      try { if (!auth.authenticated(req.headers.cookie)) { send(401, { error: "login_required" }); return; } }
+      try {
+        if (!auth.authenticated(req.headers.cookie)) { send(401, { error: "login_required" }); return; }
+        auth.touch?.(req.headers.cookie);
+      }
       catch { send(503, { error: "auth_unavailable" }); return; }
     }
     if (req.url === "/api/tasks" && req.method === "POST") {

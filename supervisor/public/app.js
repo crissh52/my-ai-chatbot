@@ -6,7 +6,67 @@ let latestReport = null;
 let taskToken = null;
 let authToken = null;
 let authMode = null;
+let unlocked = false;
+let lastInteraction = Date.now();
+let lastActivitySent = Date.now();
+let lockPending = false;
+let statusPending = false;
+const IDLE_MS = 5 * 60 * 1000;
+const lockChannel = typeof BroadcastChannel === "function" ? new BroadcastChannel("supervisor-local-lock") : null;
+function clearPasswords() { el("auth-password").value = ""; el("auth-confirm").value = ""; }
+function hidePrivateView() {
+  unlocked = false; el("workspace").hidden = true; latestReport = null; taskToken = null; el("export").disabled = true;
+  for (const id of ["task-list", "history-list", "findings"]) el(id).replaceChildren();
+  for (const id of ["main-state", "pr-state", "ci-state"]) set(id, "Chưa kiểm tra");
+  for (const id of ["main-sha", "pr-sha", "observed", "quota", "next-check"]) set(id, "—");
+  el("task-title").value = "";
+  clearPasswords();
+}
+async function lockSession() {
+  if (lockPending) return;
+  lockPending = true; hidePrivateView(); el("logout").disabled = true;
+  try {
+    await authRequest({ action: "logout" }); lockChannel?.postMessage({ type: "locked" }); location.reload();
+  } catch {
+    set("auth-notice", "Đã ẩn dữ liệu nhưng chưa xác nhận thu hồi phiên. Dừng server local để kết thúc phiên.");
+    el("logout").disabled = false; lockPending = false;
+  }
+}
+async function checkSession() {
+  if (!unlocked || statusPending) return;
+  statusPending = true;
+  try {
+    const response = await fetch("/api/auth", { cache: "no-store", signal: AbortSignal.timeout(5000) });
+    if (!response.ok || !(await response.json()).authenticated) { hidePrivateView(); location.reload(); }
+  } catch { hidePrivateView(); set("auth-notice", "Chưa xác nhận được phiên local. Dữ liệu đã được ẩn; tải lại trang để kiểm tra."); }
+  finally { statusPending = false; }
+}
+function noteInteraction(event) {
+  if (!unlocked || !event.isTrusted) return;
+  if (Date.now() - lastInteraction >= IDLE_MS) { void lockSession(); return; }
+  lastInteraction = Date.now();
+  if (Date.now() - lastActivitySent >= 30000) {
+    lastActivitySent = Date.now();
+    void authRequest({ action: "activity" }).catch(() => { hidePrivateView(); location.reload(); });
+  }
+}
+for (const type of ["pointerdown", "keydown", "pointermove", "scroll"]) document.addEventListener(type, noteInteraction, { passive: true });
+window.addEventListener("pageshow", (event) => {
+  clearPasswords();
+  if (event.persisted) { hidePrivateView(); location.reload(); return; }
+  void checkSession();
+});
+window.addEventListener("pagehide", () => { hidePrivateView(); });
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") { clearPasswords(); void checkSession(); }
+});
+if (lockChannel) lockChannel.onmessage = (event) => { if (event.data?.type === "locked") { hidePrivateView(); location.reload(); } };
+setInterval(() => {
+  if (!unlocked) return;
+  if (Date.now() - lastInteraction >= IDLE_MS) void lockSession(); else void checkSession();
+}, 15000);
 async function syncAuth() {
+  clearPasswords();
   el("auth-form").hidden = true; el("workspace").hidden = true; el("logout").hidden = true;
   latestReport = null; taskToken = null;
   try {
@@ -14,15 +74,17 @@ async function syncAuth() {
     if (!response.ok) throw new Error("auth_unavailable");
     const state = await response.json(); authToken = state.csrfToken;
     if (state.authenticated) {
+      unlocked = true; lastInteraction = Date.now(); lastActivitySent = Date.now();
       el("workspace").hidden = false; el("logout").hidden = false;
-      set("auth-title", "Phiên Supervisor local"); set("auth-notice", "Đã đăng nhập trên máy này. Phiên hết hạn sau 8 giờ hoặc khi server khởi động lại.");
+      set("auth-title", "Phiên Supervisor local"); set("auth-notice", "Tự khóa sau 5 phút không hoạt động; phiên tối đa 8 giờ hoặc kết thúc khi server khởi động lại. Dùng Khóa ngay hoặc Win+L khi rời máy.");
       await Promise.all([loadTasks(), loadHistory()]);
     } else {
       authMode = state.configured ? "login" : "setup";
       el("auth-form").hidden = false;
       el("auth-confirm").hidden = state.configured; el("confirm-label").hidden = state.configured;
       el("auth-confirm").required = !state.configured;
-      el("auth-password").autocomplete = state.configured ? "current-password" : "new-password";
+      el("auth-password").autocomplete = state.configured ? "off" : "new-password";
+      clearPasswords();
       set("auth-title", state.configured ? "Đăng nhập Supervisor local" : "Đặt mật khẩu cho Supervisor local");
       set("auth-submit", state.configured ? "Đăng nhập" : "Tạo mật khẩu local");
       set("auth-notice", state.configured ? "Đăng nhập để mở trạng thái, lịch sử và công việc. Dữ liệu đã lưu được giữ nguyên." : "Lần đầu: bạn tự đặt mật khẩu 15–128 ký tự, lưu ở nơi an toàn. Không dùng mật khẩu này cho tài khoản khác.");
@@ -45,13 +107,9 @@ el("auth-form").addEventListener("submit", async (event) => {
       auth_try_later: "Đang xử lý hoặc tạm chặn đăng nhập. Nếu đã sai 5 lần, chờ 15 phút.",
       auth_already_configured: "Mật khẩu đã được tạo. Tải lại trang để đăng nhập." };
     set("auth-notice", messages[error.message] || "Chưa đăng nhập được. Kiểm tra local; không xóa file dữ liệu.");
-  } finally { el("auth-password").value = ""; el("auth-confirm").value = ""; el("auth-submit").disabled = false; }
+  } finally { clearPasswords(); el("auth-submit").disabled = false; }
 });
-el("logout").addEventListener("click", async () => {
-  el("logout").disabled = true;
-  try { await authRequest({ action: "logout" }); location.reload(); }
-  catch { set("auth-notice", "Chưa xác nhận đăng xuất thành công. Dừng server local để kết thúc phiên."); el("logout").disabled = false; }
-});
+el("logout").addEventListener("click", () => { void lockSession(); });
 const taskStates = { todo: "Cần làm", doing: "Đang làm", done: "Bạn đánh dấu xong" };
 function renderTasks(tasks) {
   const list = el("task-list"); list.replaceChildren();

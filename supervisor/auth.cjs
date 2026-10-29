@@ -5,7 +5,7 @@ const { randomBytes, scrypt, timingSafeEqual, createHash } = require("node:crypt
 const { promisify } = require("node:util");
 const derive = promisify(scrypt);
 const COOKIE = "supervisor_local_session";
-function createLocalAuth({ root = path.resolve(__dirname, ".."), now = Date.now, sessionMs = 8 * 60 * 60 * 1000 } = {}) {
+function createLocalAuth({ root = path.resolve(__dirname, ".."), now = Date.now, sessionMs = 8 * 60 * 60 * 1000, idleMs = 5 * 60 * 1000 } = {}) {
   const rootPath = fs.realpathSync(root);
   const file = path.join(rootPath, ".netlify", "supervisor-auth", "auth.json");
   const sessions = new Map();
@@ -43,14 +43,14 @@ function createLocalAuth({ root = path.resolve(__dirname, ".."), now = Date.now,
   function authenticated(cookie) {
     // A missing/broken account file invalidates access, including existing sessions.
     if (!config()) return false;
-    const id = key(cookie); const expires = sessions.get(id);
-    if (!expires || expires <= now()) { if (id) sessions.delete(id); return false; }
+    const id = key(cookie); const session = sessions.get(id);
+    if (!session || session.expiresAt <= now() || now() - session.lastActiveAt >= idleMs) { if (id) sessions.delete(id); return false; }
     return true;
   }
   function issue() {
     const token = randomBytes(32).toString("hex");
     // Single personal session. A new login revokes earlier sessions.
-    sessions.clear(); sessions.set(createHash("sha256").update(token).digest("hex"), now() + sessionMs);
+    sessions.clear(); sessions.set(createHash("sha256").update(token).digest("hex"), { expiresAt: now() + sessionMs, lastActiveAt: now() });
     return `${COOKIE}=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${Math.floor(sessionMs / 1000)}`;
   }
   async function enter(action, password) {
@@ -79,6 +79,10 @@ function createLocalAuth({ root = path.resolve(__dirname, ".."), now = Date.now,
     } finally { busy = false; }
   }
   function logout(cookie) { const id = key(cookie); if (id) sessions.delete(id); return `${COOKIE}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0`; }
-  return { configured: () => Boolean(config()), authenticated, enter, logout };
+  function touch(cookie) {
+    if (!authenticated(cookie)) throw new Error("auth_login_required");
+    sessions.get(key(cookie)).lastActiveAt = now();
+  }
+  return { configured: () => Boolean(config()), authenticated, enter, logout, touch };
 }
 module.exports = { createLocalAuth };

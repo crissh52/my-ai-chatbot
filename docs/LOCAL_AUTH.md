@@ -48,6 +48,15 @@ Before merge rollback affects only the feature branch; retain auth/task/history
 files. Final cleanup must preserve all three data directories. Hosted release
 and multi-user authentication remain incomplete roadmap gates.
 
+## Lock and autofill update
+
+LOCAL_LOCK adds five-minute idle expiry, immediate view clearing on lock/logout,
+same-origin tab lock broadcasts and non-renewing local session-status checks.
+Password fields request no autocomplete on login and are cleared at lifecycle
+boundaries. Browser password managers can ignore that hint; the owner must remove
+the saved localhost entry to prevent it being offered again. No stored browser
+credential can be erased by this application. Use Win+L before leaving the PC.
+
 References checked2026-10-29:
 - https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html
 - https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html
