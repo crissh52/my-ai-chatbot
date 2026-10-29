@@ -1,6 +1,6 @@
 [build]
-  command = "node scripts/prepare-functions.cjs"
-  publish = "."
+  command = "node scripts/prepare-site.cjs"
+  publish = ".netlify/supervisor-public"
 
 [functions]
   directory = ".netlify/supervisor-functions"

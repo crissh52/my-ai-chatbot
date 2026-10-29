@@ -5,8 +5,17 @@ legacy chat handler, its UI, models or provider credentials.
 
 ## Behavior
 
-The Netlify build command runs `scripts/prepare-functions.cjs`. The Functions
-directory is `.netlify/supervisor-functions`, generated during that build.
+The Netlify build command runs `scripts/prepare-site.cjs`, which invokes
+`scripts/prepare-functions.cjs`. The Functions directory is
+`.netlify/supervisor-functions`, generated during that build. Static publication
+uses `.netlify/supervisor-public` and an explicit allowlist containing only the
+current self-contained `index.html`, copied unchanged. Source handlers, scripts,
+tests and documentation are not copied into that public directory. No repository
+root directory is used as the static publication directory.
+
+This allowlist must be updated deliberately if local images, CSS, JavaScript or
+other public assets are added later. It does not detect secrets embedded directly
+inside an intentionally published page, or remove files from historical deploys.
 
 | Build context | Deployed Functions |
 | --- | --- |
@@ -52,6 +61,8 @@ Do not silently copy all Functions into preview builds.
 Run `node --test` locally or in GitHub CI. Tests cover context isolation, removal
 of stale production artifacts, invalid metadata, credential non-access, safe
 filesystem handling, original handler bytes and an offline chat response.
+Site build tests also check the actual configured CLI, unchanged page bytes,
+static output isolation, stale-file rejection and production-to-preview rebuilds.
 
 Until regular Netlify credits are available, keep the PR unmerged and include
 `[skip netlify]` in its title and in the upload commit message. This skips both
