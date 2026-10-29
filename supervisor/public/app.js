@@ -16,10 +16,12 @@ const lockChannel = typeof BroadcastChannel === "function" ? new BroadcastChanne
 function clearPasswords() { el("auth-password").value = ""; el("auth-confirm").value = ""; }
 function hidePrivateView() {
   unlocked = false; el("workspace").hidden = true; latestReport = null; taskToken = null; el("export").disabled = true;
-  for (const id of ["task-list", "history-list", "findings"]) el(id).replaceChildren();
+  for (const id of ["task-list", "history-list", "findings", "project-list"]) el(id).replaceChildren();
   for (const id of ["main-state", "pr-state", "ci-state"]) set(id, "Chưa kiểm tra");
   for (const id of ["main-sha", "pr-sha", "observed", "quota", "next-check"]) set(id, "—");
   el("task-title").value = "";
+  el("project-name").value = ""; el("project-repo").value = "";
+  projectItems = [];
   clearPasswords();
 }
 async function lockSession() {
@@ -77,7 +79,7 @@ async function syncAuth() {
       unlocked = true; lastInteraction = Date.now(); lastActivitySent = Date.now();
       el("workspace").hidden = false; el("logout").hidden = false;
       set("auth-title", "Phiên Supervisor local"); set("auth-notice", "Tự khóa sau 5 phút không hoạt động; phiên tối đa 8 giờ hoặc kết thúc khi server khởi động lại. Dùng Khóa ngay hoặc Win+L khi rời máy.");
-      await Promise.all([loadTasks(), loadHistory()]);
+      await Promise.all([loadTasks(), loadHistory(), loadProjects()]);
     } else {
       authMode = state.configured ? "login" : "setup";
       el("auth-form").hidden = false;
@@ -111,6 +113,60 @@ el("auth-form").addEventListener("submit", async (event) => {
 });
 el("logout").addEventListener("click", () => { void lockSession(); });
 const taskStates = { todo: "Cần làm", doing: "Đang làm", done: "Bạn đánh dấu xong" };
+let projectItems = [];
+function renderProjects() {
+  const list = el("project-list"); list.replaceChildren();
+  for (const project of projectItems.filter((p) => !p.archived || el("project-show-archived").checked)) {
+    const row = document.createElement("li"); const content = document.createElement("div");
+    const title = document.createElement("strong"); title.textContent = project.name;
+    const detail = document.createElement("p"); detail.textContent = `${project.repository || "Chưa khai báo repo"} · ${project.builtin ? "Project Zero — dashboard bên dưới" : "Chưa kết nối"}${project.archived ? " · Đã ẩn" : ""}`;
+    content.append(title, detail); row.append(content);
+    if (!project.builtin) {
+      const button = document.createElement("button"); button.textContent = project.archived ? "Khôi phục" : "Ẩn dự án";
+      button.addEventListener("click", async () => {
+        button.disabled = true;
+        try { await mutateProject({ action: "archive", id: project.id, archived: !project.archived }); }
+        catch { button.disabled = false; }
+      }); row.append(button);
+    }
+    list.append(row);
+  }
+}
+async function loadProjects() {
+  try {
+    const response = await fetch("/api/projects", { cache: "no-store", signal: AbortSignal.timeout(5000) });
+    if (response.status === 401) { location.reload(); return; }
+    if (!response.ok) throw new Error("projects_unavailable");
+    projectItems = (await response.json()).projects; renderProjects();
+    set("project-notice", `${projectItems.length}/20 dự án đã đăng ký trên máy. Dự án mới chưa cấp quyền kết nối.`);
+  } catch { set("project-notice", "Chưa đọc được danh sách dự án. Dữ liệu cũ được giữ nguyên."); }
+}
+async function mutateProject(body) {
+  try {
+    const response = await fetch("/api/projects", { method: "POST", headers: { "Content-Type": "application/json", "X-Supervisor-CSRF": authToken },
+      body: JSON.stringify(body), signal: AbortSignal.timeout(5000) });
+    if (response.status === 401) { location.reload(); throw new Error("session_expired"); }
+    const result = await response.json();
+    if (!response.ok) {
+      const messages = { projects_duplicate: "Repo đã có, kể cả trong danh sách đã ẩn. Bật Hiện dự án đã ẩn để khôi phục.",
+        projects_limit: "Đã đủ 20 dự án. Ẩn không xóa dữ liệu hoặc giải phóng giới hạn.",
+        projects_invalid_input: "Tên tối đa 80 ký tự; repo có thể trống, nếu nhập cần dạng owner/repo. Không nhập URL, token hoặc key." };
+      set("project-notice", messages[result.error] || "Chưa lưu được dự án; dữ liệu cũ được giữ nguyên.");
+      throw new Error("project_write_failed");
+    }
+    projectItems = result.projects; renderProjects(); set("project-notice", "Đã lưu trên máy. Chưa tạo kết nối hoặc gọi dịch vụ ngoài.");
+  } catch (error) {
+    if (!["project_write_failed", "session_expired"].includes(error.message)) set("project-notice", "Chưa xác nhận lưu thành công; tải lại trang để đối chiếu trước khi thử lại.");
+    throw error;
+  }
+}
+el("project-show-archived").addEventListener("change", renderProjects);
+el("project-form").addEventListener("submit", async (event) => {
+  event.preventDefault(); el("project-add").disabled = true;
+  try { await mutateProject({ action: "create", name: el("project-name").value, repository: el("project-repo").value });
+    el("project-name").value = ""; el("project-repo").value = ""; }
+  catch {} finally { el("project-add").disabled = false; }
+});
 function renderTasks(tasks) {
   const list = el("task-list"); list.replaceChildren();
   for (const task of tasks) {

@@ -110,7 +110,7 @@ async function local(t) {
 }
 test("default server denies all protected APIs before login without upstream calls", async (t) => {
   const { base, state, reads } = await local(t); assert.equal(state.configured, false);
-  for (const route of ["/api/tasks", "/api/history", "/api/project-zero"]) {
+  for (const route of ["/api/tasks", "/api/history", "/api/project-zero", "/api/projects"]) {
     const response = await fetch(base + route); assert.equal(response.status, 401); assert.deepEqual(await response.json(), { error: "login_required" });
   }
   assert.equal((await fetch(base)).status, 200); assert.equal(reads(), 0);

@@ -23,6 +23,7 @@ async function page({ authenticated = false } = {}) {
       const result = url === "/api/auth" ? options.method === "POST" ? { authenticated: false }
         : { configured: true, authenticated, csrfToken: "synthetic-local-token" }
         : url === "/api/tasks" ? { tasks: [], csrfToken: "synthetic-local-token" }
+        : url === "/api/projects" ? { projects: [] }
         : { status: "available", items: [], changes: [], retention: 50, comparisonAvailable: false };
       return { ok: true, status: 200, json: async () => result };
     } };

@@ -8,11 +8,14 @@ and refill the field afterward; the website cannot erase its credential vault.
 No fake fields, misleading autocomplete tokens or repeated timers erase a
 password while the owner is typing.
 
-If Chrome saved the local password, the owner should remove only the saved entry
+If the owner wants blank login fields and Chrome saved the local password, the
+owner can remove only the saved entry
 for127.0.0.1/localhost from Google Password Manager and decline future save prompts.
 Keep a known copy in a suitable trusted place first. This removes the browser's
 saved copy, not the application's account or password hash. Do not delete auth.json.
 Never inspect/export the user's password manager through development tools.
+If the owner prefers browser saving/autofill, preserve that preference: no vault
+change is required. App session logout and OS workstation locking remain separate.
 
 Sessions now have a five-minute idle lifetime plus the original eight-hour
 absolute ceiling. Server status checks do not extend idle time. Actual local

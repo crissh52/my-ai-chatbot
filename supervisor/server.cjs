@@ -8,6 +8,7 @@ const { diagnose } = require("./diagnostics.cjs");
 const { createHistoryStore } = require("./history.cjs");
 const { createTaskStore } = require("./tasks.cjs");
 const { createLocalAuth } = require("./auth.cjs");
+const { createProjectStore } = require("./projects.cjs");
 const { randomBytes } = require("node:crypto");
 const assets = new Map([
   ["/", ["index.html", "text/html; charset=utf-8"]],
@@ -38,7 +39,7 @@ function readJson(req) {
     req.on("aborted", () => reject(new Error("invalid_json")));
   });
 }
-function createSupervisorServer({ reader = createGithubReader(), history = createHistoryStore(), tasks = createTaskStore(), auth = createLocalAuth() } = {}) {
+function createSupervisorServer({ reader = createGithubReader(), history = createHistoryStore(), tasks = createTaskStore(), auth = createLocalAuth(), projects = createProjectStore() } = {}) {
   const csrfToken = randomBytes(32).toString("hex");
   return http.createServer(async (req, res) => {
     const port = res.socket.localPort;
@@ -85,12 +86,29 @@ function createSupervisorServer({ reader = createGithubReader(), history = creat
       }
       return;
     }
-    if (["/api/tasks", "/api/history", "/api/project-zero"].includes(req.url)) {
+    if (["/api/tasks", "/api/history", "/api/project-zero", "/api/projects"].includes(req.url)) {
       try {
         if (!auth.authenticated(req.headers.cookie)) { send(401, { error: "login_required" }); return; }
         auth.touch?.(req.headers.cookie);
       }
       catch { send(503, { error: "auth_unavailable" }); return; }
+    }
+    if (req.url === "/api/projects" && req.method === "POST") {
+      if (!writeAllowed()) return;
+      try {
+        const body = await readJson(req);
+        if (!body || typeof body !== "object" || Array.isArray(body)) throw new Error("invalid_json");
+        let items;
+        if (body.action === "create" && Object.keys(body).length === 3) items = projects.create(body.name, body.repository);
+        else if (body.action === "archive" && Object.keys(body).length === 3) items = projects.archive(body.id, body.archived);
+        else throw new Error("invalid_action");
+        send(200, { projects: items });
+      } catch (error) {
+        const codes = { body_too_large: 413, invalid_json: 400, invalid_action: 400, projects_invalid_input: 400,
+          projects_duplicate: 409, projects_limit: 409, projects_zero_fixed: 409, projects_not_found: 404 };
+        send(codes[error.message] || 503, { error: codes[error.message] ? error.message : "projects_unavailable" });
+      }
+      return;
     }
     if (req.url === "/api/tasks" && req.method === "POST") {
       if (!writeAllowed()) return;
@@ -109,7 +127,12 @@ function createSupervisorServer({ reader = createGithubReader(), history = creat
       }
       return;
     }
-    if (req.method !== "GET") { send(405, { error: "method_not_allowed" }, undefined, { Allow: ["/api/tasks", "/api/auth"].includes(req.url) ? "GET, POST" : "GET" }); return; }
+    if (req.method !== "GET") { send(405, { error: "method_not_allowed" }, undefined, { Allow: ["/api/tasks", "/api/auth", "/api/projects"].includes(req.url) ? "GET, POST" : "GET" }); return; }
+    if (req.url === "/api/projects") {
+      try { send(200, { projects: projects.read() }); }
+      catch { send(503, { error: "projects_unavailable" }); }
+      return;
+    }
     if (req.url === "/api/tasks") {
       try { send(200, { tasks: tasks.read(), csrfToken, verification: "owner_reported" }); }
       catch { send(503, { error: "tasks_unavailable" }); }
