@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>AI Project Supervisor · Project Zero</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <main>
+    <header><div><p class="eyebrow">AI PROJECT SUPERVISOR</p><h1>Góc làm việc của bạn</h1><p>Theo dõi Project Zero bằng bằng chứng từ GitHub.</p></div><span class="tag">LOCAL · QUYỀN ĐỌC</span></header>
+    <section class="intro"><div><h2>Dự án đầu tiên: chính Supervisor</h2><p>crissh52 / my-ai-chatbot</p></div><button id="refresh">Kiểm tra GitHub</button></section>
+    <p id="notice" role="status" aria-live="polite">Chưa lấy dữ liệu. Bấm “Kiểm tra GitHub” để đọc trạng thái thật.</p>
+    <section class="grid" aria-label="Trạng thái dự án">
+      <article><h2>Nhánh production</h2><p id="main-state" class="value">Chưa kiểm tra</p><p id="main-detail">Nguồn: GitHub, nhánh main.</p><a href="https://github.com/crissh52/my-ai-chatbot/tree/main" target="_blank" rel="noopener noreferrer">Mở nhánh main ↗</a></article>
+      <article><h2>PR nền tảng #2</h2><p id="pr-state" class="value">Chưa kiểm tra</p><p id="pr-detail">Trạng thái sẽ được đọc trực tiếp.</p><a href="https://github.com/crissh52/my-ai-chatbot/pull/2" target="_blank" rel="noopener noreferrer">Mở PR #2 ↗</a></article>
+      <article><h2>Kiểm thử trên GitHub</h2><p id="ci-state" class="value">Chưa kiểm tra</p><p id="ci-detail">Health contract tests tại commit của PR.</p><a href="https://github.com/crissh52/my-ai-chatbot/actions" target="_blank" rel="noopener noreferrer">Mở lịch sử CI ↗</a></article>
+      <article><h2>Netlify</h2><p class="value muted">Chưa kiểm chứng mới</p><p>Bản local này không gọi Netlify. CI đạt không đồng nghĩa production đã cập nhật.</p><a href="https://app.netlify.com/projects/my-ai-bot-sh/deploys" target="_blank" rel="noopener noreferrer">Mở dashboard Netlify ↗</a></article>
+    </section>
+    <section class="evidence"><h2>Bằng chứng đang xem</h2><dl><dt>Thời điểm quan sát</dt><dd id="observed">Chưa có</dd><dt>Commit main</dt><dd id="main-sha">—</dd><dt>Commit PR</dt><dd id="pr-sha">—</dd><dt>Lượt API còn lại</dt><dd id="quota">Chưa biết</dd><dt>Lần kiểm tra mới sớm nhất</dt><dd id="next-check">—</dd></dl></section>
+    <footer>Bản thử local, chưa có đăng nhập hoặc lưu trữ nhiều người dùng. Không nhập key hay dữ liệu riêng tư. Không có thao tác merge, deploy, sửa code hoặc gọi AI.</footer>
+  </main>
+</body>
+</html>
