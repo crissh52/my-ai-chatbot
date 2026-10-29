@@ -3,6 +3,32 @@ const el = (id) => document.getElementById(id);
 const set = (id, value) => { el(id).textContent = value; };
 const date = (value) => value ? new Date(value).toLocaleString("vi-VN") : "Chưa biết";
 let latestReport = null;
+const historyLabels = { mainSha: "Commit main", mainProtected: "Bảo vệ main", pullSha: "Commit PR",
+  pullState: "Trạng thái PR", draft: "Draft", merged: "Đã merge", ciStatus: "Trạng thái CI", ciConclusion: "Kết quả CI" };
+function renderHistory(history) {
+  const list = el("history-list"); list.replaceChildren();
+  if (history.status !== "available") {
+    set("history-state", "Chưa đọc/lưu được lịch sử. File cũ được giữ nguyên; trạng thái GitHub vẫn được báo riêng.");
+    set("history-change", "Chưa thể so sánh lịch sử."); return;
+  }
+  set("history-state", `${history.items.length} lần quan sát đã lưu trên máy, tối đa ${history.retention}. Đây là lịch sử, không phải trạng thái vừa kiểm tra.`);
+  set("history-change", !history.comparisonAvailable ? "Cần hai lần quan sát khác thời điểm để so sánh."
+    : !history.changes.length ? "Hai lần gần nhất: không thấy thay đổi trong các trường trạng thái đã lưu."
+    : history.changes.map((c) => `${historyLabels[c.field] || c.field}: ${String(c.before ?? "chưa biết")} → ${String(c.after ?? "chưa biết")}`).join(" · "));
+  for (const item of history.items) {
+    const row = document.createElement("li");
+    row.textContent = `${date(item.observedAt)} · main ${item.mainSha.slice(0, 7)} · PR ${item.pullSha.slice(0, 7)} · CI ${item.ciConclusion || item.ciStatus || "chưa biết"}`;
+    list.append(row);
+  }
+}
+async function loadHistory() {
+  try {
+    const response = await fetch("/api/history", { cache: "no-store", signal: AbortSignal.timeout(5000) });
+    if (!response.ok) throw new Error("local_history_unavailable");
+    renderHistory(await response.json());
+  } catch { set("history-state", "Chưa đọc được lịch sử local. Chưa gọi GitHub."); }
+}
+loadHistory();
 function renderAnalysis(analysis) {
   set("analysis-summary", analysis.summary);
   const list = el("findings");
@@ -42,6 +68,7 @@ el("refresh").addEventListener("click", async () => {
     const result = await response.json();
     latestReport = result;
     renderAnalysis(result.analysis);
+    renderHistory(result.history);
     el("export").disabled = false;
     set("quota", result.quota.remaining === null ? "Chưa biết" : String(result.quota.remaining));
     set("next-check", date(result.nextCheckAt));
