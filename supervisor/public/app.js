@@ -3,6 +3,54 @@ const el = (id) => document.getElementById(id);
 const set = (id, value) => { el(id).textContent = value; };
 const date = (value) => value ? new Date(value).toLocaleString("vi-VN") : "Chưa biết";
 let latestReport = null;
+let taskToken = null;
+const taskStates = { todo: "Cần làm", doing: "Đang làm", done: "Bạn đánh dấu xong" };
+function renderTasks(tasks) {
+  const list = el("task-list"); list.replaceChildren();
+  for (const task of tasks) {
+    const row = document.createElement("li"); const title = document.createElement("span");
+    title.textContent = task.title;
+    const select = document.createElement("select"); select.setAttribute("aria-label", `Trạng thái: ${task.title}`);
+    for (const [value, label] of Object.entries(taskStates)) {
+      const option = document.createElement("option"); option.value = value; option.textContent = label; select.append(option);
+    }
+    select.value = task.status;
+    select.addEventListener("change", async () => {
+      select.disabled = true;
+      try { await mutateTask({ action: "status", id: task.id, status: select.value }); }
+      catch { select.value = task.status; select.disabled = false; }
+    });
+    row.append(title, select); list.append(row);
+  }
+}
+async function loadTasks() {
+  try {
+    const response = await fetch("/api/tasks", { cache: "no-store", signal: AbortSignal.timeout(5000) });
+    if (!response.ok) throw new Error("tasks_unavailable");
+    const result = await response.json(); taskToken = result.csrfToken; renderTasks(result.tasks);
+    set("task-notice", `${result.tasks.length}/100 công việc trên máy. Trạng thái do bạn xác nhận.`);
+  } catch { taskToken = null; set("task-notice", "Chưa đọc được công việc. File cũ được giữ nguyên; hãy kiểm tra bản local."); }
+}
+async function mutateTask(body) {
+  if (!taskToken) { set("task-notice", "Cần tải lại trang để lấy phiên local mới."); throw new Error("no_local_token"); }
+  try {
+    const response = await fetch("/api/tasks", { method: "POST", headers: { "Content-Type": "application/json", "X-Supervisor-CSRF": taskToken },
+      body: JSON.stringify(body), signal: AbortSignal.timeout(5000) });
+    const result = await response.json();
+    if (!response.ok) {
+      set("task-notice", result.error === "tasks_limit" ? "Đã đủ 100 công việc; không tự xóa công việc cũ."
+        : "Chưa lưu được công việc. Kiểm tra tên tối đa 160 ký tự hoặc tải lại trang; dữ liệu cũ được giữ nguyên.");
+      throw new Error("task_write_failed");
+    }
+    renderTasks(result.tasks); set("task-notice", `Đã lưu trên máy · ${result.tasks.length}/100 công việc. Chưa tự thực thi thao tác kỹ thuật.`);
+  } catch (error) { if (error.message !== "task_write_failed") set("task-notice", "Chưa xác nhận lưu thành công. Tải lại trang để đối chiếu trước khi thử lại."); throw error; }
+}
+el("task-form").addEventListener("submit", async (event) => {
+  event.preventDefault(); el("task-add").disabled = true;
+  try { await mutateTask({ action: "create", title: el("task-title").value }); el("task-title").value = ""; }
+  catch {} finally { el("task-add").disabled = false; }
+});
+loadTasks();
 const historyLabels = { mainSha: "Commit main", mainProtected: "Bảo vệ main", pullSha: "Commit PR",
   pullState: "Trạng thái PR", draft: "Draft", merged: "Đã merge", ciStatus: "Trạng thái CI", ciConclusion: "Kết quả CI" };
 function renderHistory(history) {
@@ -39,7 +87,13 @@ function renderAnalysis(analysis) {
     const next = document.createElement("p");
     fact.textContent = `${finding.level === "warning" ? "Cần chú ý" : finding.level === "pass" ? "Đã quan sát" : "Còn bước tiếp"}: ${finding.fact}`;
     next.textContent = `Đề xuất: ${finding.nextStep}`;
-    row.append(fact, next); list.append(row);
+    const save = document.createElement("button"); save.textContent = "Thêm vào công việc";
+    save.addEventListener("click", async () => {
+      save.disabled = true;
+      try { await mutateTask({ action: "create", title: finding.nextStep.slice(0, 160) }); save.textContent = "Đã thêm công việc"; }
+      catch { save.disabled = false; }
+    });
+    row.append(fact, next, save); list.append(row);
   }
 }
 el("export").addEventListener("click", () => {
