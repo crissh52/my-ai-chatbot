@@ -101,7 +101,7 @@ test("linked parent cannot redirect history writes", (t) => {
 test("history endpoint survives restart without collecting GitHub again", async (t) => {
   const { root } = fixture(t); let reads = 0;
   const history = createHistoryStore({ root }); history.record(observation());
-  const server = createSupervisorServer({ history: createHistoryStore({ root }),
+  const server = createSupervisorServer({ auth: { authenticated: () => true }, history: createHistoryStore({ root }),
     reader: { read: async () => { reads++; return observation(); } } });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   t.after(() => new Promise((resolve) => { server.closeAllConnections(); server.close(resolve); }));

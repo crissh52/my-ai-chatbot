@@ -11,6 +11,8 @@ On this Windows workstation with Node installed, double-click START_SUPERVISOR.c
 or run node scripts/start-supervisor.cjs from the repository root. Open
 http://127.0.0.1:8892. Click the GitHub check button to collect public evidence.
 Stop with Ctrl+C. No npm install, API key, Netlify login or AI provider is needed.
+With LOCAL_AUTH, first create the owner's password on the local page; later
+starts require login. Task/history data are retained while sessions reset.
 
 The page displays the actual main commit/protection, PR #2 state/commit and its
 Health contract tests check. Netlify always stays not_checked because this module

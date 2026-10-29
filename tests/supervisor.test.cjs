@@ -138,7 +138,7 @@ test("missing protection metadata is unknown, never mislabeled as unprotected", 
 
 async function local(t) {
   let reads = 0;
-  const server = createSupervisorServer({ reader: { read: async () => { reads++; return { status: "observed" }; } } });
+  const server = createSupervisorServer({ auth: { authenticated: () => true }, reader: { read: async () => { reads++; return { status: "observed" }; } } });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   t.after(() => new Promise((resolve) => { server.closeAllConnections(); server.close(resolve); }));
   const port = server.address().port;

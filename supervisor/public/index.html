@@ -10,6 +10,8 @@
 <body>
   <main>
     <header><div><p class="eyebrow">AI PROJECT SUPERVISOR</p><h1>Góc làm việc của bạn</h1><p>Theo dõi Project Zero bằng bằng chứng từ GitHub.</p></div><span class="tag">LOCAL · QUYỀN ĐỌC</span></header>
+    <section id="auth-panel" class="evidence"><h2 id="auth-title">Đăng nhập Supervisor local</h2><p id="auth-notice" role="status" aria-live="polite">Đang kiểm tra phiên local…</p><form id="auth-form" hidden><label for="auth-password">Mật khẩu (15–128 ký tự)</label><input id="auth-password" type="password" minlength="15" maxlength="128" autocomplete="current-password" required><label id="confirm-label" for="auth-confirm" hidden>Nhập lại mật khẩu mới</label><input id="auth-confirm" type="password" minlength="15" maxlength="128" autocomplete="new-password" hidden><button id="auth-submit" type="submit">Đăng nhập</button></form><button id="logout" hidden>Đăng xuất</button><p>Mật khẩu chỉ được gửi tới ứng dụng trên máy này. Không gửi mật khẩu hoặc file cấu hình đăng nhập vào chat.</p></section>
+    <div id="workspace" hidden>
     <section class="intro"><div><h2>Dự án đầu tiên: chính Supervisor</h2><p>crissh52 / my-ai-chatbot</p></div><button id="refresh">Kiểm tra GitHub</button></section>
     <p id="notice" role="status" aria-live="polite">Chưa lấy dữ liệu. Bấm “Kiểm tra GitHub” để đọc trạng thái thật.</p>
     <section class="grid" aria-label="Trạng thái dự án">
@@ -22,7 +24,8 @@
     <section class="evidence"><h2>Bằng chứng đang xem</h2><dl><dt>Thời điểm quan sát</dt><dd id="observed">Chưa có</dd><dt>Commit main</dt><dd id="main-sha">—</dd><dt>Commit PR</dt><dd id="pr-sha">—</dd><dt>Lượt API còn lại</dt><dd id="quota">Chưa biết</dd><dt>Lần kiểm tra mới sớm nhất</dt><dd id="next-check">—</dd></dl></section>
     <section class="evidence"><h2>Lịch sử kiểm tra trên máy</h2><p id="history-state">Đang đọc lịch sử local; chưa gọi GitHub.</p><p id="history-change">Cần hai lần quan sát khác thời điểm để so sánh.</p><ol id="history-list"></ol></section>
     <section class="evidence"><h2>Công việc của bạn</h2><p>Danh sách local, không gửi sang AI. “Bạn đánh dấu xong” chưa phải kết quả được kiểm chứng kỹ thuật. Không nhập key hay thông tin nhạy cảm.</p><form id="task-form"><label for="task-title">Tên công việc</label><input id="task-title" maxlength="160" required placeholder="Ví dụ: Đối chiếu kết quả CI của PR #3"><button id="task-add" type="submit">Thêm công việc</button></form><p id="task-notice" role="status" aria-live="polite">Đang đọc công việc local…</p><ul id="task-list"></ul></section>
-    <footer>Bản thử local, chưa có đăng nhập hoặc lưu trữ nhiều người dùng. Lưu tối đa 50 lần quan sát public trên máy. Không nhập key hay dữ liệu riêng tư. Không có thao tác merge, deploy, sửa code hoặc gọi AI.</footer>
+    </div>
+    <footer>Đăng nhập một chủ sở hữu trên máy local; chưa hỗ trợ nhiều người dùng hoặc website công khai. Không nhập key hay dữ liệu riêng tư. Không có thao tác merge, deploy, sửa code hoặc gọi AI.</footer>
   </main>
 </body>
 </html>

@@ -28,6 +28,8 @@ shown. These checks do not promise protection against a malicious local OS user.
 Run node --test. Verify a real local observation, restart the server and confirm
 history remains without another GitHub call. No Auth, task/project editing,
 background monitor, cloud storage, Netlify request or AI inference is introduced.
+LOCAL_AUTH now gates the history API behind the owner's local login. Restart
+requires login again before the retained history can be viewed.
 
 Rollback: stop local server and revert this increment on the feature branch.
 Leave the data file intact if needed for recovery. Do not delete a cache/history

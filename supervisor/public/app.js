@@ -4,6 +4,54 @@ const set = (id, value) => { el(id).textContent = value; };
 const date = (value) => value ? new Date(value).toLocaleString("vi-VN") : "Chưa biết";
 let latestReport = null;
 let taskToken = null;
+let authToken = null;
+let authMode = null;
+async function syncAuth() {
+  el("auth-form").hidden = true; el("workspace").hidden = true; el("logout").hidden = true;
+  latestReport = null; taskToken = null;
+  try {
+    const response = await fetch("/api/auth", { cache: "no-store", signal: AbortSignal.timeout(5000) });
+    if (!response.ok) throw new Error("auth_unavailable");
+    const state = await response.json(); authToken = state.csrfToken;
+    if (state.authenticated) {
+      el("workspace").hidden = false; el("logout").hidden = false;
+      set("auth-title", "Phiên Supervisor local"); set("auth-notice", "Đã đăng nhập trên máy này. Phiên hết hạn sau 8 giờ hoặc khi server khởi động lại.");
+      await Promise.all([loadTasks(), loadHistory()]);
+    } else {
+      authMode = state.configured ? "login" : "setup";
+      el("auth-form").hidden = false;
+      el("auth-confirm").hidden = state.configured; el("confirm-label").hidden = state.configured;
+      el("auth-confirm").required = !state.configured;
+      el("auth-password").autocomplete = state.configured ? "current-password" : "new-password";
+      set("auth-title", state.configured ? "Đăng nhập Supervisor local" : "Đặt mật khẩu cho Supervisor local");
+      set("auth-submit", state.configured ? "Đăng nhập" : "Tạo mật khẩu local");
+      set("auth-notice", state.configured ? "Đăng nhập để mở trạng thái, lịch sử và công việc. Dữ liệu đã lưu được giữ nguyên." : "Lần đầu: bạn tự đặt mật khẩu 15–128 ký tự, lưu ở nơi an toàn. Không dùng mật khẩu này cho tài khoản khác.");
+    }
+  } catch { authMode = null; set("auth-notice", "Chưa đọc được cấu hình đăng nhập. Không tự xóa hoặc ghi đè file cũ; cần kiểm tra local."); }
+}
+async function authRequest(body) {
+  const response = await fetch("/api/auth", { method: "POST", headers: { "Content-Type": "application/json", "X-Supervisor-CSRF": authToken },
+    body: JSON.stringify(body), signal: AbortSignal.timeout(15000) });
+  const result = await response.json();
+  if (!response.ok) throw new Error(result.error || "auth_unavailable");
+}
+el("auth-form").addEventListener("submit", async (event) => {
+  event.preventDefault(); if (!authMode) return;
+  if (authMode === "setup" && el("auth-password").value !== el("auth-confirm").value) { set("auth-notice", "Hai lần nhập mật khẩu chưa khớp."); return; }
+  el("auth-submit").disabled = true;
+  try { await authRequest({ action: authMode, password: el("auth-password").value }); location.reload(); }
+  catch (error) {
+    const messages = { auth_invalid_login: "Mật khẩu chưa đúng.", auth_password_invalid: "Cần mật khẩu từ 15 đến 128 ký tự.",
+      auth_try_later: "Đang xử lý hoặc tạm chặn đăng nhập. Nếu đã sai 5 lần, chờ 15 phút.",
+      auth_already_configured: "Mật khẩu đã được tạo. Tải lại trang để đăng nhập." };
+    set("auth-notice", messages[error.message] || "Chưa đăng nhập được. Kiểm tra local; không xóa file dữ liệu.");
+  } finally { el("auth-password").value = ""; el("auth-confirm").value = ""; el("auth-submit").disabled = false; }
+});
+el("logout").addEventListener("click", async () => {
+  el("logout").disabled = true;
+  try { await authRequest({ action: "logout" }); location.reload(); }
+  catch { set("auth-notice", "Chưa xác nhận đăng xuất thành công. Dừng server local để kết thúc phiên."); el("logout").disabled = false; }
+});
 const taskStates = { todo: "Cần làm", doing: "Đang làm", done: "Bạn đánh dấu xong" };
 function renderTasks(tasks) {
   const list = el("task-list"); list.replaceChildren();
@@ -26,6 +74,7 @@ function renderTasks(tasks) {
 async function loadTasks() {
   try {
     const response = await fetch("/api/tasks", { cache: "no-store", signal: AbortSignal.timeout(5000) });
+    if (response.status === 401) { location.reload(); return; }
     if (!response.ok) throw new Error("tasks_unavailable");
     const result = await response.json(); taskToken = result.csrfToken; renderTasks(result.tasks);
     set("task-notice", `${result.tasks.length}/100 công việc trên máy. Trạng thái do bạn xác nhận.`);
@@ -38,6 +87,7 @@ async function mutateTask(body) {
       body: JSON.stringify(body), signal: AbortSignal.timeout(5000) });
     const result = await response.json();
     if (!response.ok) {
+      if (response.status === 401) { location.reload(); throw new Error("task_write_failed"); }
       set("task-notice", result.error === "tasks_limit" ? "Đã đủ 100 công việc; không tự xóa công việc cũ."
         : "Chưa lưu được công việc. Kiểm tra tên tối đa 160 ký tự hoặc tải lại trang; dữ liệu cũ được giữ nguyên.");
       throw new Error("task_write_failed");
@@ -50,7 +100,6 @@ el("task-form").addEventListener("submit", async (event) => {
   try { await mutateTask({ action: "create", title: el("task-title").value }); el("task-title").value = ""; }
   catch {} finally { el("task-add").disabled = false; }
 });
-loadTasks();
 const historyLabels = { mainSha: "Commit main", mainProtected: "Bảo vệ main", pullSha: "Commit PR",
   pullState: "Trạng thái PR", draft: "Draft", merged: "Đã merge", ciStatus: "Trạng thái CI", ciConclusion: "Kết quả CI" };
 function renderHistory(history) {
@@ -72,11 +121,11 @@ function renderHistory(history) {
 async function loadHistory() {
   try {
     const response = await fetch("/api/history", { cache: "no-store", signal: AbortSignal.timeout(5000) });
+    if (response.status === 401) { location.reload(); return; }
     if (!response.ok) throw new Error("local_history_unavailable");
     renderHistory(await response.json());
   } catch { set("history-state", "Chưa đọc được lịch sử local. Chưa gọi GitHub."); }
 }
-loadHistory();
 function renderAnalysis(analysis) {
   set("analysis-summary", analysis.summary);
   const list = el("findings");
@@ -118,6 +167,7 @@ el("refresh").addEventListener("click", async () => {
   set("notice", "Đang đọc trạng thái public từ GitHub…");
   try {
     const response = await fetch("/api/project-zero", { cache: "no-store", signal: AbortSignal.timeout(35000) });
+    if (response.status === 401) { location.reload(); return; }
     if (!response.ok) throw new Error("local_unavailable");
     const result = await response.json();
     latestReport = result;
@@ -147,3 +197,4 @@ el("refresh").addEventListener("click", async () => {
     set("notice", "Chưa đọc được bản local hoặc GitHub. Dữ liệu đang hiển thị không được xác nhận mới.");
   } finally { button.disabled = false; }
 });
+syncAuth();

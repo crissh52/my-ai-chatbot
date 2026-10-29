@@ -7,8 +7,9 @@ verified execution. The app performs no task on GitHub, Netlify, AI or a server.
 Tasks are plaintext under .netlify/supervisor-tasks/tasks.json, already ignored by
 Git and outside public output. No task data is sent to the public connector or
 included in the evidence-report export. Do not enter credentials or sensitive
-customer information. Auth, encrypted private storage and multi-user use are not
-implemented; use this prototype only on the owner's trusted local workstation.
+customer information. LOCAL_AUTH now requires the owner's local login for task
+APIs. Encrypted private storage and multi-user use are not implemented; use this
+prototype only on the owner's trusted local workstation.
 
 Up to100 tasks,160 characters per title. At the cap, creation is rejected; old
 tasks are not silently deleted. Status can be changed back to reopen a task.

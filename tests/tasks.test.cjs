@@ -46,7 +46,7 @@ test("task directory links cannot redirect a write", (t) => {
 });
 async function local(t) {
   const { root } = fixture(t); let reads = 0;
-  const server = createSupervisorServer({ tasks: createTaskStore({ root }), reader: { read: async () => { reads++; throw new Error("No upstream calls allowed"); } } });
+  const server = createSupervisorServer({ auth: { authenticated: () => true }, tasks: createTaskStore({ root }), reader: { read: async () => { reads++; throw new Error("No upstream calls allowed"); } } });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   t.after(() => new Promise((resolve) => { server.closeAllConnections(); server.close(resolve); }));
   const base = `http://127.0.0.1:${server.address().port}`;
@@ -88,7 +88,7 @@ test("unknown actions and unexpected fields cannot mutate tasks", async (t) => {
 });
 test("filesystem errors expose no path or raw file content", async (t) => {
   const { root, file } = fixture(t); fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, "synthetic-private-marker");
-  const server = createSupervisorServer({ tasks: createTaskStore({ root }) });
+  const server = createSupervisorServer({ auth: { authenticated: () => true }, tasks: createTaskStore({ root }) });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   t.after(() => new Promise((resolve) => { server.closeAllConnections(); server.close(resolve); }));
   const response = await fetch(`http://127.0.0.1:${server.address().port}/api/tasks`);

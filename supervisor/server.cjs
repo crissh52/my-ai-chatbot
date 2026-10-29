@@ -7,6 +7,7 @@ const { createGithubReader } = require("./github-public.cjs");
 const { diagnose } = require("./diagnostics.cjs");
 const { createHistoryStore } = require("./history.cjs");
 const { createTaskStore } = require("./tasks.cjs");
+const { createLocalAuth } = require("./auth.cjs");
 const { randomBytes } = require("node:crypto");
 const assets = new Map([
   ["/", ["index.html", "text/html; charset=utf-8"]],
@@ -19,7 +20,25 @@ const HEADERS = {
   "Content-Security-Policy": "default-src 'none'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'",
 };
 
-function createSupervisorServer({ reader = createGithubReader(), history = createHistoryStore(), tasks = createTaskStore() } = {}) {
+function readJson(req) {
+  return new Promise((resolve, reject) => {
+    let size = 0; const chunks = []; let rejected = false;
+    req.on("data", (part) => {
+      if (rejected) return;
+      size += part.length;
+      if (size > 4096) { rejected = true; reject(new Error("body_too_large")); return; }
+      chunks.push(part);
+    });
+    req.on("end", () => {
+      if (rejected) return;
+      try { resolve(JSON.parse(Buffer.concat(chunks).toString("utf8"))); }
+      catch { reject(new Error("invalid_json")); }
+    });
+    req.on("error", () => reject(new Error("invalid_json")));
+    req.on("aborted", () => reject(new Error("invalid_json")));
+  });
+}
+function createSupervisorServer({ reader = createGithubReader(), history = createHistoryStore(), tasks = createTaskStore(), auth = createLocalAuth() } = {}) {
   const csrfToken = randomBytes(32).toString("hex");
   return http.createServer(async (req, res) => {
     const port = res.socket.localPort;
@@ -34,27 +53,43 @@ function createSupervisorServer({ reader = createGithubReader(), history = creat
         req.headers["sec-fetch-site"] === "cross-site") {
       send(403, { error: "local_origin_required" }); return;
     }
-    if (req.url === "/api/tasks" && req.method === "POST") {
-      if (!origin || req.headers["x-supervisor-csrf"] !== csrfToken) { send(403, { error: "local_write_token_required" }); return; }
+    function writeAllowed() {
+      if (!origin || req.headers["x-supervisor-csrf"] !== csrfToken) { send(403, { error: "local_write_token_required" }); return false; }
       if ((req.headers["content-type"] || "").split(";")[0].trim().toLowerCase() !== "application/json") {
-        send(415, { error: "json_required" }); return;
+        send(415, { error: "json_required" }); return false;
       }
+      return true;
+    }
+    if (req.url === "/api/auth" && req.method === "GET") {
+      try { send(200, { configured: auth.configured(), authenticated: auth.authenticated(req.headers.cookie), csrfToken }); }
+      catch { send(503, { error: "auth_unavailable" }); }
+      return;
+    }
+    if (req.url === "/api/auth" && req.method === "POST") {
+      if (!writeAllowed()) return;
       try {
-        const body = await new Promise((resolve, reject) => {
-          let size = 0; const chunks = []; let rejected = false;
-          req.on("data", (part) => {
-            if (rejected) return;
-            size += part.length;
-            if (size > 4096) { rejected = true; reject(new Error("body_too_large")); return; }
-            chunks.push(part);
-          });
-          req.on("end", () => {
-            if (rejected) return;
-            try { resolve(JSON.parse(Buffer.concat(chunks).toString("utf8"))); }
-            catch { reject(new Error("invalid_json")); }
-          });
-          req.on("error", () => reject(new Error("invalid_json")));
-        });
+        const body = await readJson(req);
+        if (!body || Array.isArray(body) || typeof body !== "object") throw new Error("invalid_json");
+        let cookie;
+        if (body.action === "logout" && Object.keys(body).length === 1) cookie = auth.logout(req.headers.cookie);
+        else if (["setup", "login"].includes(body.action) && Object.keys(body).length === 2) cookie = await auth.enter(body.action, body.password);
+        else throw new Error("invalid_action");
+        send(200, { authenticated: body.action !== "logout" }, undefined, { "Set-Cookie": cookie });
+      } catch (error) {
+        const codes = { body_too_large: 413, invalid_json: 400, invalid_action: 400, auth_password_invalid: 400,
+          auth_invalid_login: 401, auth_setup_required: 409, auth_already_configured: 409, auth_try_later: 429 };
+        send(codes[error.message] || 503, { error: codes[error.message] ? error.message : "auth_unavailable" });
+      }
+      return;
+    }
+    if (["/api/tasks", "/api/history", "/api/project-zero"].includes(req.url)) {
+      try { if (!auth.authenticated(req.headers.cookie)) { send(401, { error: "login_required" }); return; } }
+      catch { send(503, { error: "auth_unavailable" }); return; }
+    }
+    if (req.url === "/api/tasks" && req.method === "POST") {
+      if (!writeAllowed()) return;
+      try {
+        const body = await readJson(req);
         if (!body || Array.isArray(body) || typeof body !== "object") throw new Error("invalid_json");
         let updated;
         if (body.action === "create" && Object.keys(body).length === 2) updated = tasks.create(body.title);
@@ -68,7 +103,7 @@ function createSupervisorServer({ reader = createGithubReader(), history = creat
       }
       return;
     }
-    if (req.method !== "GET") { send(405, { error: "method_not_allowed" }, undefined, { Allow: req.url === "/api/tasks" ? "GET, POST" : "GET" }); return; }
+    if (req.method !== "GET") { send(405, { error: "method_not_allowed" }, undefined, { Allow: ["/api/tasks", "/api/auth"].includes(req.url) ? "GET, POST" : "GET" }); return; }
     if (req.url === "/api/tasks") {
       try { send(200, { tasks: tasks.read(), csrfToken, verification: "owner_reported" }); }
       catch { send(503, { error: "tasks_unavailable" }); }
