@@ -4,6 +4,7 @@ const http = require("node:http");
 const fs = require("node:fs");
 const path = require("node:path");
 const { createGithubReader } = require("./github-public.cjs");
+const { diagnose } = require("./diagnostics.cjs");
 const assets = new Map([
   ["/", ["index.html", "text/html; charset=utf-8"]],
   ["/app.js", ["app.js", "text/javascript; charset=utf-8"]],
@@ -31,7 +32,10 @@ function createSupervisorServer({ reader = createGithubReader() } = {}) {
     }
     if (req.method !== "GET") { send(405, { error: "method_not_allowed" }, undefined, { Allow: "GET" }); return; }
     if (req.url === "/api/project-zero") {
-      try { send(200, await reader.read()); }
+      try {
+        const result = await reader.read();
+        send(200, { ...result, analysis: diagnose(result) });
+      }
       catch { send(503, { error: "local_reader_failed" }); }
       return;
     }

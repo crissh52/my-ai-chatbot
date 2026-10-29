@@ -2,6 +2,28 @@
 const el = (id) => document.getElementById(id);
 const set = (id, value) => { el(id).textContent = value; };
 const date = (value) => value ? new Date(value).toLocaleString("vi-VN") : "Chưa biết";
+let latestReport = null;
+function renderAnalysis(analysis) {
+  set("analysis-summary", analysis.summary);
+  const list = el("findings");
+  list.replaceChildren();
+  for (const finding of analysis.findings) {
+    const row = document.createElement("li");
+    const fact = document.createElement("strong");
+    const next = document.createElement("p");
+    fact.textContent = `${finding.level === "warning" ? "Cần chú ý" : finding.level === "pass" ? "Đã quan sát" : "Còn bước tiếp"}: ${finding.fact}`;
+    next.textContent = `Đề xuất: ${finding.nextStep}`;
+    row.append(fact, next); list.append(row);
+  }
+}
+el("export").addEventListener("click", () => {
+  if (!latestReport) return;
+  const content = JSON.stringify({ schemaVersion: 1, exportedAt: new Date().toISOString(), report: latestReport }, null, 2);
+  const url = URL.createObjectURL(new Blob([content], { type: "application/json" }));
+  const link = document.createElement("a");
+  link.href = url; link.download = "supervisor-project-zero-report.json";
+  link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
 const errors = {
   github_limit_or_denied: "GitHub đang giới hạn hoặc từ chối lượt đọc. Chờ thời điểm kiểm tra tiếp theo.",
   github_unavailable: "GitHub chưa trả được dữ liệu hợp lệ.",
@@ -12,11 +34,15 @@ const errors = {
 el("refresh").addEventListener("click", async () => {
   const button = el("refresh");
   button.disabled = true;
+  el("export").disabled = true;
   set("notice", "Đang đọc trạng thái public từ GitHub…");
   try {
     const response = await fetch("/api/project-zero", { cache: "no-store", signal: AbortSignal.timeout(35000) });
     if (!response.ok) throw new Error("local_unavailable");
     const result = await response.json();
+    latestReport = result;
+    renderAnalysis(result.analysis);
+    el("export").disabled = false;
     set("quota", result.quota.remaining === null ? "Chưa biết" : String(result.quota.remaining));
     set("next-check", date(result.nextCheckAt));
     if (result.snapshot) {
@@ -35,6 +61,8 @@ el("refresh").addEventListener("click", async () => {
       set("notice", `${errors[result.error] || "Chưa lấy được trạng thái mới."}${result.status === "stale" ? " Đang giữ bằng chứng cũ bên dưới, không coi là kết quả mới." : ""}`);
     } else set("notice", result.cached ? "Đang dùng bằng chứng trong bộ nhớ đệm 2 phút để tiết kiệm lượt API." : "Đã đọc bằng chứng mới từ GitHub. Không có thay đổi nào được gửi lên dự án.");
   } catch {
+    latestReport = null;
+    set("analysis-summary", "Chưa nhận được kết quả phân tích mới. Các nhận xét cũ bên dưới không được xác nhận lại.");
     set("notice", "Chưa đọc được bản local hoặc GitHub. Dữ liệu đang hiển thị không được xác nhận mới.");
   } finally { button.disabled = false; }
 });
