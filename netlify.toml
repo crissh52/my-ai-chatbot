@@ -1,0 +1,6 @@
+[build]
+  command = "node scripts/prepare-functions.cjs"
+  publish = "."
+
+[functions]
+  directory = ".netlify/supervisor-functions"
